@@ -1,8 +1,9 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { supabase } from "../lib/supabase";
 import { friendlyError } from "../lib/format";
+import { Company } from "../types";
 
 export default function Login() {
   const { signIn, profile } = useAuth();
@@ -11,6 +12,27 @@ export default function Login() {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const [resetSent, setResetSent] = useState(false);
+  const [company, setCompany] = useState<Company | null>(null);
+
+  // Antes de iniciar sesión todavía no sabemos a qué empresa pertenece
+  // quien está entrando, así que mostramos la primera (y normalmente
+  // única) empresa registrada — es la misma que se configura en
+  // Configuración, con su nombre y su logo.
+  useEffect(() => {
+    let active = true;
+    supabase
+      .from("companies")
+      .select("*")
+      .order("created_at", { ascending: true })
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (active) setCompany((data as Company) || null);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   if (profile) return <Navigate to="/" replace />;
 
@@ -35,8 +57,14 @@ export default function Login() {
   return (
     <div className="login-wrap">
       <div className="login-card">
-        <div className="login-logo-fallback">C</div>
-        <div className="login-title">Caja Chica</div>
+        {company?.logo_url ? (
+          <div className="brand-mark-logo" style={{ margin: "0 auto 14px auto", width: 142, height: 50 }}>
+            <img src={company.logo_url} alt={company.nombre} />
+          </div>
+        ) : (
+          <div className="login-logo-fallback">{(company?.nombre || "C").slice(0, 1)}</div>
+        )}
+        <div className="login-title">{company?.nombre || "Caja Chica"}</div>
         <div className="login-sub">Ingresa a tu cuenta</div>
         <form onSubmit={submit}>
           {error && <div className="field-error">{error}</div>}
