@@ -181,7 +181,22 @@ begin
       values (v_company_id, upper(to_char(now(), 'TMMonth YYYY')), 'abierto');
     v_role := 'superadmin';
   else
-    select id into v_company_id from public.companies order by created_at asc limit 1;
+    -- Importante: la empresa del usuario nuevo es la del Super
+    -- Administrador real (el perfil "superadmin" más antiguo), no
+    -- "la empresa más antigua de toda la base de datos". Si alguna vez
+    -- quedó una empresa huérfana (de una prueba, o de una cuenta que
+    -- ya no existe), esto evita que el usuario nuevo caiga ahí y
+    -- desaparezca de la lista de usuarios del administrador real.
+    select company_id into v_company_id
+    from public.profiles
+    where role = 'superadmin'
+    order by created_at asc
+    limit 1;
+
+    if v_company_id is null then
+      select id into v_company_id from public.companies order by created_at asc limit 1;
+    end if;
+
     v_role := 'cajero';
   end if;
 
@@ -203,6 +218,29 @@ drop trigger if exists on_auth_user_created on auth.users;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
+
+-- ---------------------------------------------------------------------
+-- SECCIÓN 4B: REPARACIÓN (seguro de repetir) — corrige perfiles que
+-- hayan quedado asignados a una empresa huérfana por el error descrito
+-- arriba, uniéndolos a la empresa real del Super Administrador. No
+-- toca fondos, gastos, períodos ni cierres: solo la ficha del usuario.
+-- ---------------------------------------------------------------------
+do $$
+declare
+  v_real_company uuid;
+begin
+  select company_id into v_real_company
+  from public.profiles
+  where role = 'superadmin'
+  order by created_at asc
+  limit 1;
+
+  if v_real_company is not null then
+    update public.profiles
+       set company_id = v_real_company
+     where company_id <> v_real_company;
+  end if;
+end $$;
 
 -- ---------------------------------------------------------------------
 -- SECCIÓN 5: FUNCIONES DE NEGOCIO (RPC)
@@ -574,6 +612,14 @@ alter table public.audit_logs enable row level security;
 drop policy if exists companies_select on public.companies;
 create policy companies_select on public.companies for select to authenticated
   using (id = public.fn_current_company());
+
+-- El nombre y el logo de la empresa también se muestran en la pantalla
+-- de inicio de sesión, ANTES de entrar — ahí todavía no hay un usuario
+-- identificado, así que se permite leer esos datos (nombre y logo,
+-- nada financiero ni de usuarios) sin haber iniciado sesión.
+drop policy if exists companies_select_public on public.companies;
+create policy companies_select_public on public.companies for select to anon
+  using (true);
 
 -- Un Cajero solo puede ver su propio perfil (no la lista completa de
 -- usuarios de la empresa). Administrador y Super Administrador sí ven
