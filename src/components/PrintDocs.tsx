@@ -1,6 +1,8 @@
-import { Company, Expense, FundEntry, CashPeriod, TIPO_PAGO_LABELS } from "../types";
+import { Company, DOC_TIPO_LABELS, Expense, FundEntry, CashPeriod, TIPO_PAGO_LABELS } from "../types";
 import { MonthlyClosureWithName } from "../hooks/usePeriod";
-import { fmt, fmtDateTime } from "../lib/format";
+import { fmt, fmtDateTime, fmtNumero } from "../lib/format";
+
+const docLabel = (g: Expense) => (g.doc_tipo && g.doc_numero ? `${DOC_TIPO_LABELS[g.doc_tipo]} ${g.doc_numero}` : "—");
 
 function CompanyMark({ company }: { company: Company | null }) {
   if (company?.logo_url) {
@@ -37,8 +39,16 @@ export function PrintReceipt({ gasto, company }: { gasto: Expense; company: Comp
         subtitle={"Comprobante de gasto de caja chica" + (gasto.estado === "anulado" ? " — ANULADO" : "")}
       />
       <div className="print-kv">
+        <span>N° de gasto</span>
+        <strong>{fmtNumero(gasto.numero)}</strong>
+      </div>
+      <div className="print-kv">
         <span>Fecha</span>
         <strong>{fmtDateTime(gasto.created_at)}</strong>
+      </div>
+      <div className="print-kv">
+        <span>Factura / Recibo</span>
+        <strong>{docLabel(gasto)}</strong>
       </div>
       <div className="print-kv">
         <span>Nombre</span>
@@ -166,9 +176,11 @@ export function PrintGastosListado({
       <table className="print-table">
         <thead>
           <tr>
+            <th>N°</th>
             <th>Fecha</th>
             <th>Nombre</th>
             <th>Motivo</th>
+            <th>Factura / Recibo</th>
             <th>Tipo</th>
             <th>Monto</th>
             <th>Estado</th>
@@ -177,9 +189,11 @@ export function PrintGastosListado({
         <tbody>
           {expenses.map((g) => (
             <tr key={g.id}>
+              <td>{fmtNumero(g.numero)}</td>
               <td>{fmtDateTime(g.created_at)}</td>
               <td>{g.persona}</td>
               <td>{g.motivo}</td>
+              <td>{docLabel(g)}</td>
               <td>{TIPO_PAGO_LABELS[g.tipo_pago]}</td>
               <td>{fmt(g.monto)}</td>
               <td>{g.estado === "anulado" ? "ANULADO" : "ACTIVO"}</td>
@@ -187,11 +201,11 @@ export function PrintGastosListado({
           ))}
           {expenses.length === 0 && (
             <tr>
-              <td colSpan={6}>Sin registros para estos filtros.</td>
+              <td colSpan={8}>Sin registros para estos filtros.</td>
             </tr>
           )}
           <tr className="print-total-row">
-            <td colSpan={4}>Total activos</td>
+            <td colSpan={6}>Total activos</td>
             <td colSpan={2}>{fmt(totalActivos)}</td>
           </tr>
         </tbody>
