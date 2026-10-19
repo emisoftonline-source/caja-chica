@@ -176,6 +176,17 @@ export default function Usuarios() {
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [toToggle, setToToggle] = useState<Profile | null>(null);
+  const [toPassword, setToPassword] = useState<Profile | null>(null);
+  const [newPassword, setNewPassword] = useState("");
+  const [showNewPw, setShowNewPw] = useState(false);
+  const [pwError, setPwError] = useState("");
+
+  const closePasswordModal = () => {
+    setToPassword(null);
+    setNewPassword("");
+    setShowNewPw(false);
+    setPwError("");
+  };
 
   const puedeAsignarRolYEstado = profile?.role === "superadmin";
 
@@ -222,6 +233,24 @@ export default function Usuarios() {
       load();
     }
     setToToggle(null);
+  };
+
+  const confirmPassword = async () => {
+    if (!toPassword) return;
+    if (newPassword.length < 6) {
+      setPwError("La contraseña debe tener al menos 6 caracteres.");
+      return;
+    }
+    const { error } = await supabase.rpc("fn_admin_set_password", {
+      p_user_id: toPassword.id,
+      p_new_password: newPassword,
+    });
+    if (error) {
+      setPwError(friendlyError(error));
+      return;
+    }
+    showToast("Contraseña de " + toPassword.full_name + " actualizada. Ya puede ingresar con la nueva.");
+    closePasswordModal();
   };
 
   return (
@@ -302,6 +331,11 @@ export default function Usuarios() {
                           <button className="btn btn-ghost btn-sm" onClick={() => setEditingId(u.id)}>
                             Editar
                           </button>
+                          {puedeAsignarRolYEstado && u.id !== profile?.id && (
+                            <button className="btn btn-ghost btn-sm" onClick={() => setToPassword(u)}>
+                              Cambiar contraseña
+                            </button>
+                          )}
                           {puedeAsignarRolYEstado &&
                             u.id !== profile?.id &&
                             (u.active === false ? (
@@ -322,6 +356,32 @@ export default function Usuarios() {
           </table>
         </div>
       </div>
+
+      {toPassword && (
+        <Modal
+          title={"Cambiar contraseña de " + toPassword.full_name}
+          onCancel={closePasswordModal}
+          onConfirm={confirmPassword}
+          confirmLabel="Guardar contraseña"
+          confirmTone="primary"
+        >
+          <p>Escribe la nueva contraseña y compártela con el usuario. Si tenía una sesión abierta, se cerrará.</p>
+          {pwError && <div className="field-error">{pwError}</div>}
+          <div className="field pw-field" style={{ position: "relative" }}>
+            <label>Nueva contraseña</label>
+            <input
+              type={showNewPw ? "text" : "password"}
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder="Mínimo 6 caracteres"
+              autoFocus
+            />
+            <button type="button" className="pw-toggle" onClick={() => setShowNewPw(!showNewPw)}>
+              {showNewPw ? "Ocultar" : "Ver"}
+            </button>
+          </div>
+        </Modal>
+      )}
 
       {toToggle && (
         <Modal
