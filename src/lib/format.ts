@@ -12,6 +12,12 @@ export const onlyLetters = (s: string) => s.replace(/[^A-Za-zÀ-ÖØ-öø-ÿÑñ
 // Solo números, letras y espacio — para "número + extensión" del C.I.
 export const onlyCI = (s: string) => s.replace(/[^0-9A-Za-z\s]/g, "");
 
+// Número de factura / recibo: letras, números, guion, barra y espacio
+export const onlyDoc = (s: string) => s.replace(/[^0-9A-Za-z\-\/\s]/g, "");
+
+// Correlativo del gasto con ceros a la izquierda (1 → "0001")
+export const fmtNumero = (n: number) => String(n ?? 0).padStart(4, "0");
+
 // Traduce errores técnicos de Postgres/Supabase a mensajes comprensibles
 export function friendlyError(raw: unknown): string {
   const msg = (raw as any)?.message || String(raw);
