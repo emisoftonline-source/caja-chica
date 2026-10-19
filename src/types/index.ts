@@ -2,6 +2,7 @@ export type UserRole = "superadmin" | "admin" | "cajero";
 export type PeriodEstado = "abierto" | "cerrado";
 export type TipoPago = "efectivo" | "qr" | "cheque";
 export type ExpenseEstado = "activo" | "anulado";
+export type DocTipo = "factura" | "recibo";
 
 export interface Company {
   id: string;
@@ -46,6 +47,9 @@ export interface Expense {
   id: string;
   company_id: string;
   period_id: string;
+  numero: number;
+  doc_tipo: DocTipo | null;
+  doc_numero: string | null;
   persona: string;
   motivo: string;
   monto: number;
@@ -79,6 +83,11 @@ export const ROLE_LABELS: Record<UserRole, string> = {
   superadmin: "Super Administrador",
   admin: "Administrador",
   cajero: "Cajero",
+};
+
+export const DOC_TIPO_LABELS: Record<DocTipo, string> = {
+  factura: "Factura",
+  recibo: "Recibo",
 };
 
 export const TIPO_PAGO_LABELS: Record<TipoPago, string> = {
