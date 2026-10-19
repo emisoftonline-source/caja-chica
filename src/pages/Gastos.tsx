@@ -4,8 +4,8 @@ import { useAuth } from "../hooks/useAuth";
 import { usePeriod } from "../hooks/usePeriod";
 import { usePrint } from "../hooks/usePrint";
 import { useToast } from "../hooks/useToast";
-import { Expense, TipoPago, TIPO_PAGO_LABELS } from "../types";
-import { fmt, fmtDateTime, friendlyError, onlyLetters, onlyCI } from "../lib/format";
+import { DocTipo, DOC_TIPO_LABELS, Expense, TipoPago, TIPO_PAGO_LABELS } from "../types";
+import { fmt, fmtDateTime, fmtNumero, friendlyError, onlyLetters, onlyCI, onlyDoc } from "../lib/format";
 import { PrintReceipt, PrintGastosListado } from "../components/PrintDocs";
 import Modal from "../components/Modal";
 
@@ -14,6 +14,8 @@ interface GastoFormData {
   motivo: string;
   monto: string;
   tipoPago: TipoPago;
+  docTipo: DocTipo;
+  docNumero: string;
   entregado: string;
   entregadoCI: string;
   recibido: string;
@@ -25,6 +27,8 @@ const emptyForm = (): GastoFormData => ({
   motivo: "",
   monto: "",
   tipoPago: "efectivo",
+  docTipo: "factura",
+  docNumero: "",
   entregado: "",
   entregadoCI: "",
   recibido: "",
@@ -55,6 +59,7 @@ export default function Gastos() {
   const [desde, setDesde] = useState("");
   const [hasta, setHasta] = useState("");
   const [busqueda, setBusqueda] = useState("");
+  const [busquedaDoc, setBusquedaDoc] = useState("");
 
   const puedeAnular = profile?.role === "admin" || profile?.role === "superadmin";
   const puedeEditar = profile?.role === "admin" || profile?.role === "superadmin";
@@ -96,6 +101,8 @@ export default function Gastos() {
       motivo: g.motivo,
       monto: String(g.monto),
       tipoPago: g.tipo_pago,
+      docTipo: g.doc_tipo || "factura",
+      docNumero: g.doc_numero || "",
       entregado: g.entregado_nombre || "",
       entregadoCI: g.entregado_ci || "",
       recibido: g.recibido_nombre || "",
@@ -114,6 +121,10 @@ export default function Gastos() {
       setFormError("Completa todos los campos obligatorios.");
       return;
     }
+    if (!form.docNumero.trim()) {
+      setFormError("Indica el número de la " + DOC_TIPO_LABELS[form.docTipo].toLowerCase() + ".");
+      return;
+    }
     setSaving(true);
     if (editingId) {
       const { error } = await supabase.rpc("fn_editar_gasto", {
@@ -126,6 +137,8 @@ export default function Gastos() {
         p_entregado_ci: form.entregadoCI.trim(),
         p_recibido_nombre: form.recibido.trim() || "Contabilidad",
         p_recibido_ci: form.recibidoCI.trim(),
+        p_doc_tipo: form.docTipo,
+        p_doc_numero: form.docNumero.trim(),
       });
       setSaving(false);
       if (error) {
@@ -144,6 +157,8 @@ export default function Gastos() {
         p_entregado_ci: form.entregadoCI.trim(),
         p_recibido_nombre: form.recibido.trim() || "Contabilidad",
         p_recibido_ci: form.recibidoCI.trim(),
+        p_doc_tipo: form.docTipo,
+        p_doc_numero: form.docNumero.trim(),
       });
       setSaving(false);
       if (error) {
@@ -181,6 +196,7 @@ export default function Gastos() {
     if (desde && iso < desde) return false;
     if (hasta && iso > hasta) return false;
     if (busqueda && !g.persona.toLowerCase().includes(busqueda.toLowerCase())) return false;
+    if (busquedaDoc && !(g.doc_numero || "").toLowerCase().includes(busquedaDoc.trim().toLowerCase())) return false;
     return true;
   });
 
@@ -212,6 +228,30 @@ export default function Gastos() {
             <div className="field">
               <label>Motivo</label>
               <input type="text" value={form.motivo} onChange={(e) => setForm({ ...form, motivo: e.target.value })} placeholder="Ej. Compra de material de oficina" required />
+            </div>
+            {editingId && (
+              <div className="field-hint" style={{ marginBottom: 10 }}>
+                Gasto N° <strong className="mono">{fmtNumero(expenses.find((x) => x.id === editingId)?.numero ?? 0)}</strong>
+              </div>
+            )}
+            <div className="field-row">
+              <div className="field">
+                <label>Respaldo</label>
+                <select value={form.docTipo} onChange={(e) => setForm({ ...form, docTipo: e.target.value as DocTipo })}>
+                  <option value="factura">Factura</option>
+                  <option value="recibo">Recibo</option>
+                </select>
+              </div>
+              <div className="field">
+                <label>N° de {DOC_TIPO_LABELS[form.docTipo].toLowerCase()}</label>
+                <input
+                  type="text"
+                  value={form.docNumero}
+                  onChange={(e) => setForm({ ...form, docNumero: onlyDoc(e.target.value) })}
+                  placeholder={"Número de " + DOC_TIPO_LABELS[form.docTipo].toLowerCase()}
+                  required
+                />
+              </div>
             </div>
             <div className="field-row">
               <div className="field">
@@ -265,6 +305,7 @@ export default function Gastos() {
       <div className="card">
         <div className="filters-row">
           <input type="text" placeholder="Buscar por nombre..." value={busqueda} onChange={(e) => setBusqueda(e.target.value)} style={{ minWidth: 180 }} />
+          <input type="text" placeholder="Buscar N° factura / recibo..." value={busquedaDoc} onChange={(e) => setBusquedaDoc(onlyDoc(e.target.value))} style={{ minWidth: 200 }} />
           <select value={filtroEstado} onChange={(e) => setFiltroEstado(e.target.value)}>
             <option value="todos">Todos los estados</option>
             <option value="activo">Activos</option>
@@ -291,13 +332,14 @@ export default function Gastos() {
               Imprimir reporte
             </button>
           </span>
-          {(desde || hasta || busqueda || filtroEstado !== "todos" || filtroTipo !== "todos") && (
+          {(desde || hasta || busqueda || busquedaDoc || filtroEstado !== "todos" || filtroTipo !== "todos") && (
             <button
               className="btn btn-ghost btn-sm"
               onClick={() => {
                 setDesde("");
                 setHasta("");
                 setBusqueda("");
+                setBusquedaDoc("");
                 setFiltroEstado("todos");
                 setFiltroTipo("todos");
               }}
@@ -310,9 +352,11 @@ export default function Gastos() {
           <table>
             <thead>
               <tr>
+                <th>N°</th>
                 <th>Fecha</th>
                 <th>Nombre</th>
                 <th>Motivo</th>
+                <th>Factura / Recibo</th>
                 <th>Tipo</th>
                 <th>Monto</th>
                 <th>Estado</th>
@@ -322,7 +366,7 @@ export default function Gastos() {
             <tbody>
               {loading && (
                 <tr>
-                  <td colSpan={7} className="empty-state">
+                  <td colSpan={9} className="empty-state">
                     Cargando…
                   </td>
                 </tr>
@@ -330,6 +374,7 @@ export default function Gastos() {
               {!loading &&
                 filtered.map((g) => (
                   <tr key={g.id} style={g.estado === "anulado" ? { opacity: 0.6 } : undefined}>
+                    <td className="mono">{fmtNumero(g.numero)}</td>
                     <td className="mono">{fmtDateTime(g.created_at)}</td>
                     <td>{g.persona}</td>
                     <td>
@@ -338,6 +383,15 @@ export default function Gastos() {
                         <span className="field-hint" style={{ display: "block" }}>
                           editado
                         </span>
+                      )}
+                    </td>
+                    <td>
+                      {g.doc_tipo && g.doc_numero ? (
+                        <>
+                          {DOC_TIPO_LABELS[g.doc_tipo]} <span className="mono">{g.doc_numero}</span>
+                        </>
+                      ) : (
+                        "—"
                       )}
                     </td>
                     <td>{TIPO_PAGO_LABELS[g.tipo_pago]}</td>
@@ -370,7 +424,7 @@ export default function Gastos() {
                 ))}
               {!loading && filtered.length === 0 && (
                 <tr>
-                  <td colSpan={7} className="empty-state">
+                  <td colSpan={9} className="empty-state">
                     No hay gastos con estos filtros.
                   </td>
                 </tr>
