@@ -1,7 +1,9 @@
 import { FormEvent, useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { usePeriod } from "../hooks/usePeriod";
+import { usePeriodList } from "../hooks/usePeriodList";
 import { usePrint } from "../hooks/usePrint";
 import { useToast } from "../hooks/useToast";
 import { DocTipo, DOC_TIPO_LABELS, Expense, TipoPago, TIPO_PAGO_LABELS } from "../types";
@@ -41,6 +43,14 @@ export default function Gastos() {
   const { printDocument } = usePrint();
   const { showToast } = useToast();
 
+  // Período que se está mirando: por defecto el abierto; también se puede
+  // elegir un mes anterior (cerrado), que se muestra SOLO para consulta.
+  const periods = usePeriodList();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedId = searchParams.get("periodo");
+  const viewPeriod = (selectedId && periods.find((p) => p.id === selectedId)) || period;
+  const soloConsulta = !!viewPeriod && viewPeriod.estado === "cerrado";
+
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
   const [saldo, setSaldo] = useState(0);
@@ -61,19 +71,21 @@ export default function Gastos() {
   const [busqueda, setBusqueda] = useState("");
   const [busquedaDoc, setBusquedaDoc] = useState("");
 
-  const puedeAnular = profile?.role === "admin" || profile?.role === "superadmin";
-  const puedeEditar = profile?.role === "admin" || profile?.role === "superadmin";
+  // En un mes cerrado nadie puede editar ni anular (solo consultar); la
+  // base de datos también lo impide aunque alguien intente saltarse la pantalla.
+  const puedeAnular = !soloConsulta && (profile?.role === "admin" || profile?.role === "superadmin");
+  const puedeEditar = !soloConsulta && (profile?.role === "admin" || profile?.role === "superadmin");
 
   const load = async () => {
-    if (!period) {
+    if (!viewPeriod) {
       setExpenses([]);
       setLoading(false);
       return;
     }
     setLoading(true);
     const [{ data: exp }, { data: funds }] = await Promise.all([
-      supabase.from("expenses").select("*").eq("period_id", period.id).order("created_at", { ascending: false }),
-      supabase.from("fund_entries").select("monto").eq("period_id", period.id),
+      supabase.from("expenses").select("*").eq("period_id", viewPeriod.id).order("created_at", { ascending: false }),
+      supabase.from("fund_entries").select("monto").eq("period_id", viewPeriod.id),
     ]);
     const list = (exp as Expense[]) || [];
     setExpenses(list);
@@ -86,7 +98,7 @@ export default function Gastos() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [period?.id]);
+  }, [viewPeriod?.id]);
 
   const resetForm = () => {
     setForm(emptyForm());
@@ -206,15 +218,47 @@ export default function Gastos() {
         <div>
           <h1 className="page-title">Registro de gastos</h1>
           <p className="page-sub">
-            Saldo disponible: <strong className="mono">{fmt(saldo)}</strong>
+            {soloConsulta ? "Saldo devuelto a Gerencia: " : "Saldo disponible: "}
+            <strong className="mono">{fmt(saldo)}</strong>
           </p>
         </div>
-        {!showForm && !editingId && period && (
-          <button className="btn btn-primary" onClick={() => setShowForm(true)}>
-            + Registrar gasto
-          </button>
-        )}
+        <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+          {periods.length > 1 && (
+            <select
+              value={viewPeriod?.id || ""}
+              onChange={(e) => {
+                resetForm();
+                if (e.target.value === period?.id) setSearchParams({});
+                else setSearchParams({ periodo: e.target.value });
+              }}
+              aria-label="Período"
+            >
+              {periods.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.nombre + (p.estado === "abierto" ? " (actual)" : " — cerrado")}
+                </option>
+              ))}
+            </select>
+          )}
+          {!showForm && !editingId && period && !soloConsulta && (
+            <button className="btn btn-primary" onClick={() => setShowForm(true)}>
+              + Registrar gasto
+            </button>
+          )}
+        </div>
       </div>
+
+      {soloConsulta && (
+        <div className="card" style={{ marginBottom: 16, background: "var(--surface-2)" }}>
+          <strong>{viewPeriod?.nombre} — mes cerrado.</strong> Estos registros son solo de consulta: no se pueden
+          modificar ni anular. Puedes imprimirlos.
+          {period && (
+            <button className="btn btn-sm" style={{ marginLeft: 10 }} onClick={() => setSearchParams({})}>
+              Volver al mes actual
+            </button>
+          )}
+        </div>
+      )}
 
       {(showForm || editingId) && (
         <div className="card" style={{ marginBottom: 16, maxWidth: 560 }}>
@@ -328,8 +372,8 @@ export default function Gastos() {
               Hasta
             </span>
             <input type="date" value={hasta} onChange={(e) => setHasta(e.target.value)} />
-            <button className="btn btn-sm" onClick={() => printDocument(<PrintGastosListado expenses={filtered} company={company} periodo={period} />, true)}>
-              Imprimir reporte
+            <button className="btn btn-sm" onClick={() => printDocument(<PrintGastosListado expenses={filtered} company={company} periodo={viewPeriod || null} />, true)}>
+              Imprimir rendición de gastos
             </button>
           </span>
           {(desde || hasta || busqueda || busquedaDoc || filtroEstado !== "todos" || filtroTipo !== "todos") && (
