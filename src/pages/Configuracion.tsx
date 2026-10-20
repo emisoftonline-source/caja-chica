@@ -3,9 +3,10 @@ import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { useToast } from "../hooks/useToast";
 import { friendlyError } from "../lib/format";
+import GestionesCard from "../components/GestionesCard";
 
 export default function Configuracion() {
-  const { company, refreshCompany } = useAuth();
+  const { profile, company, refreshCompany } = useAuth();
   const { showToast } = useToast();
   const [nombre, setNombre] = useState(company?.nombre || "");
   const [error, setError] = useState("");
@@ -119,6 +120,7 @@ export default function Configuracion() {
           </div>
         </div>
       </div>
+      {profile?.role === "superadmin" && <GestionesCard />}
     </div>
   );
 }
