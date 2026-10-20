@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { usePeriod } from "../hooks/usePeriod";
@@ -13,6 +14,7 @@ export default function Cierre() {
   const { period, closures, refresh } = usePeriod();
   const { printDocument } = usePrint();
   const { showToast } = useToast();
+  const navigate = useNavigate();
 
   const [totalFondos, setTotalFondos] = useState(0);
   const [totalGastado, setTotalGastado] = useState(0);
@@ -90,7 +92,7 @@ export default function Cierre() {
     <div>
       <div className="page-head">
         <h1 className="page-title">Cierre mensual</h1>
-        <p className="page-sub">Cierra el período actual y registra la devolución a Contabilidad.</p>
+        <p className="page-sub">Cierra el período actual y registra la devolución a Gerencia.</p>
       </div>
       <div className="grid-2">
         <div className="card">
@@ -115,11 +117,11 @@ export default function Cierre() {
                 <span className="v amount-neg">{fmt(totalGastado)}</span>
               </div>
               <div className="kv-row">
-                <span className="k">Saldo a devolver a Contabilidad</span>
+                <span className="k">Saldo a devolver a Gerencia</span>
                 <span className="v amount-pos">{fmt(saldo)}</span>
               </div>
               <button className="btn btn-primary btn-block" style={{ marginTop: 16 }} disabled={!period} onClick={() => setConfirming(true)}>
-                Cierre de mes / Devolver a Contabilidad
+                Cierre de mes / Devolver a Gerencia
               </button>
               {!period && (
                 <div className="field-hint" style={{ marginTop: 8 }}>
@@ -149,9 +151,14 @@ export default function Cierre() {
                     <td className="mono">{fmtDate(c.created_at)}</td>
                     <td className="amount amount-pos">{fmt(c.saldo_devuelto)}</td>
                     <td>
-                      <button className="btn btn-ghost btn-sm" onClick={() => imprimirCierre(c)}>
-                        Imprimir
-                      </button>
+                      <div style={{ display: "flex", gap: 4 }}>
+                        <button className="btn btn-ghost btn-sm" onClick={() => navigate("/gastos?periodo=" + c.period_id)}>
+                          Ver gastos
+                        </button>
+                        <button className="btn btn-ghost btn-sm" onClick={() => imprimirCierre(c)}>
+                          Imprimir
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
