@@ -158,7 +158,7 @@ export function PrintGastosListado({
   const totalActivos = activos.reduce((s, g) => s + g.monto, 0);
   return (
     <div>
-      <Header company={company} subtitle={"Reporte general de gastos — " + (periodo?.nombre || "")} />
+      <Header company={company} subtitle={"Rendición de gastos — " + (periodo?.nombre || "")} />
       <div className="print-kv">
         <span>Total de registros</span>
         <strong>{expenses.length}</strong>
@@ -234,7 +234,7 @@ export function PrintReporte({
   const totalAnulados = anulados.reduce((s, g) => s + g.monto, 0);
   return (
     <div>
-      <Header company={company} subtitle={"Reporte de caja chica — " + (periodo?.nombre || "")} />
+      <Header company={company} subtitle={"Rendición de gastos de caja chica — " + (periodo?.nombre || "")} />
       <p style={{ fontWeight: 700, fontSize: 12.5, marginBottom: 4 }}>Gastado por tipo de pago</p>
       <table className="print-table">
         <thead>
@@ -336,7 +336,7 @@ export function PrintCierre({
         <strong>{fmt(closure.gastado_total)}</strong>
       </div>
       <div className="print-kv">
-        <span>Saldo devuelto a Contabilidad</span>
+        <span>Saldo devuelto a Gerencia</span>
         <strong>{fmt(closure.saldo_devuelto)}</strong>
       </div>
       <div className="sign-grid">
@@ -349,7 +349,7 @@ export function PrintCierre({
         </div>
         <div className="sign-block">
           <div className="sign-line">
-            <div className="sign-role">RECIBE CONTABILIDAD</div>
+            <div className="sign-role">RECIBE GERENCIA</div>
             <div>________________________</div>
             <div className="sign-meta">C.I. ________________</div>
           </div>
