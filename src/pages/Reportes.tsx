@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../hooks/useAuth";
 import { usePeriod } from "../hooks/usePeriod";
+import { usePeriodList } from "../hooks/usePeriodList";
 import { usePrint } from "../hooks/usePrint";
 import { Expense, TipoPago, TIPO_PAGO_LABELS } from "../types";
 import { fmt } from "../lib/format";
@@ -9,7 +10,11 @@ import { PrintReporte } from "../components/PrintDocs";
 
 export default function Reportes() {
   const { company } = useAuth();
-  const { period, closures } = usePeriod();
+  const { period: periodoActual, closures } = usePeriod();
+  const periods = usePeriodList();
+  const [selectedId, setSelectedId] = useState("");
+  // Por defecto el mes actual; también se puede elegir un mes cerrado.
+  const period = periods.find((p) => p.id === selectedId) || periodoActual;
   const { printDocument } = usePrint();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [loading, setLoading] = useState(true);
@@ -17,6 +22,7 @@ export default function Reportes() {
   useEffect(() => {
     const load = async () => {
       if (!period) {
+        setExpenses([]);
         setLoading(false);
         return;
       }
@@ -39,9 +45,22 @@ export default function Reportes() {
 
   return (
     <div>
-      <div className="page-head">
-        <h1 className="page-title">Reportes</h1>
-        <p className="page-sub">Vista consolidada de gastos, fondos y cierres del período actual.</p>
+      <div className="page-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 10 }}>
+        <div>
+          <h1 className="page-title">Rendición de Gastos</h1>
+          <p className="page-sub">
+            Vista consolidada de gastos, fondos y cierres{period ? " — " + period.nombre : ""}.
+          </p>
+        </div>
+        {periods.length > 1 && (
+          <select value={period?.id || ""} onChange={(e) => setSelectedId(e.target.value)} aria-label="Período">
+            {periods.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre + (p.estado === "abierto" ? " (actual)" : " — cerrado")}
+              </option>
+            ))}
+          </select>
+        )}
       </div>
       <div className="grid-3" style={{ marginBottom: 16 }}>
         {porTipo.map((p) => (
@@ -71,7 +90,7 @@ export default function Reportes() {
             style={{ marginTop: 14 }}
             onClick={() => printDocument(<PrintReporte company={company} periodo={period} activos={activos} anulados={anulados} porTipo={porTipo} closures={closures} />, true)}
           >
-            Imprimir reporte
+            Imprimir rendición de gastos
           </button>
         </div>
         <div className="card">
