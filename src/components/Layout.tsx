@@ -9,7 +9,7 @@ const NAV = [
   { to: "/fondos", key: "fondos", label: "Fondos", icon: "＄", roles: ["superadmin", "admin"] },
   { to: "/gastos", key: "gastos", label: "Gastos", icon: "▤", roles: ["superadmin", "admin", "cajero"] },
   { to: "/cierre", key: "cierre", label: "Cierre mensual", icon: "◐", roles: ["superadmin", "admin"] },
-  { to: "/reportes", key: "reportes", label: "Reportes", icon: "▥", roles: ["superadmin", "admin"] },
+  { to: "/reportes", key: "reportes", label: "Rendición de Gastos", icon: "▥", roles: ["superadmin", "admin"] },
   { to: "/usuarios", key: "usuarios", label: "Usuarios", icon: "◍", roles: ["superadmin", "admin"] },
   { to: "/configuracion", key: "config", label: "Configuración", icon: "⚙", roles: ["superadmin", "admin"] },
 ];
